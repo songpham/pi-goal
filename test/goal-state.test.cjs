@@ -9,6 +9,8 @@ const {
 	formatElapsed,
 	formatTokens,
 	goalEventStatus,
+	goalCompactInstructions,
+	goalStatusDetail,
 	goalUsage,
 	normalizeTokenBudget,
 	parseTokenBudget,
@@ -92,13 +94,43 @@ test("formatElapsed keeps seconds, minutes, and hours readable", () => {
 	assert.equal(formatElapsed(5_460), "1h 31m");
 });
 
-test("statusLine covers all lifecycle states", () => {
+test("statusLine covers all lifecycle states with and without budgets", () => {
 	assert.equal(statusLine(null), undefined);
 	assert.equal(statusLine({ status: "active", tokenBudget: 1000, tokensUsed: 500, timeUsedSeconds: 10 }), "Pursuing goal (500 / 1K)");
+	assert.equal(statusLine({ status: "active", tokenBudget: null, tokensUsed: 0, timeUsedSeconds: 10 }), "Pursuing goal (10s)");
+	assert.equal(statusLine({ status: "paused", tokenBudget: 1000, tokensUsed: 500, timeUsedSeconds: 10 }), "Goal paused (/goal resume)");
 	assert.equal(statusLine({ status: "paused", tokenBudget: null, tokensUsed: 0, timeUsedSeconds: 10 }), "Goal paused (/goal resume)");
 	assert.equal(statusLine({ status: "budget_limited", tokenBudget: 1000, tokensUsed: 1000, timeUsedSeconds: 10 }), "Goal unmet (1K / 1K)");
-	assert.equal(statusLine({ status: "budget_limited", tokenBudget: null, tokensUsed: 0, timeUsedSeconds: 10 }), "Goal abandoned");
+	assert.equal(statusLine({ status: "budget_limited", tokenBudget: null, tokensUsed: 0, timeUsedSeconds: 10 }), "Goal unmet");
+	assert.equal(statusLine({ status: "complete", tokenBudget: 1000, tokensUsed: 1000, timeUsedSeconds: 61 }), "Goal achieved (1K / 1K)");
 	assert.equal(statusLine({ status: "complete", tokenBudget: null, tokensUsed: 0, timeUsedSeconds: 61 }), "Goal achieved (1m)");
+});
+
+test("goalStatusDetail exposes audit-friendly progress metadata", () => {
+	assert.deepEqual(goalStatusDetail({
+		id: "1234567890abcdef",
+		status: "active",
+		tokenBudget: 1000,
+		tokensUsed: 250,
+		timeUsedSeconds: 61,
+		updatedAt: 0,
+	}), {
+		remainingTokens: 750,
+		elapsed: "1m",
+		updatedAt: "1970-01-01T00:00:00.000Z",
+		id: "1234567890ab",
+	});
+});
+
+test("goalCompactInstructions preserves the objective and three audit rules", () => {
+	const instructions = goalCompactInstructions({
+		...createGoalState("ship it", 1000, 42, 0.5),
+		tokensUsed: 250,
+	});
+	assert.match(instructions, /<untrusted_objective>\nship it\n<\/untrusted_objective>/);
+	assert.match(instructions, /Usage: 250 \/ 1K tokens/);
+	assert.match(instructions, /Re-check Constraints and Boundaries/);
+	assert.match(instructions, /If blocked, report evidence gathered/);
 });
 
 test("goalUsage prefers token budget usage when budgeted", () => {

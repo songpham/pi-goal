@@ -6,6 +6,8 @@ Persistent autonomous goals for [pi](https://github.com/badlogic/pi-mono).
 
 `pi-goal` adds a `/goal` command and goal tools so Pi can keep working toward a long-running, thread-scoped objective until the goal is complete, paused, cleared, or token-budget-limited.
 
+Version 0.2.0 targets Pi's `@earendil-works/*` runtime packages. Upgrade Pi and pi-goal together; the old `@mariozechner/*` namespace is no longer supported.
+
 ## Install
 
 ```bash
@@ -31,7 +33,16 @@ pi install git:github.com/Michaelliv/pi-goal
 /goal statusbar off
 ```
 
-When a goal is active, the extension shows compact visible lifecycle markers like `Goal active` and `Goal continuing`; expand them with `ctrl+o` to inspect the objective and usage. The full continuation instructions ride along as the content of that custom message, so the model always has the objective and audit guidance in the transcript while the renderer keeps the visible UI compact.
+When a goal is active, the extension shows compact visible lifecycle markers like `Goal active` and `Goal continuing`; expand them with `ctrl+o` to inspect the objective and usage. The full continuation instructions ride along as the content of that custom message, so the model always has the objective and audit guidance in the transcript while the renderer keeps the visible UI compact. Goal context is re-injected after compaction so the objective and budget survive summarization.
+
+`/goal status` shows the objective, remaining tokens, elapsed time, last update, and a short goal ID. The `get_goal` tool returns the persisted goal together with numeric `remainingTokens` (or `null` for an unbudgeted goal), for example:
+
+```json
+{
+  "goal": { "status": "active", "tokenBudget": 50000, "tokensUsed": 1300 },
+  "remainingTokens": 48700
+}
+```
 
 The same Pi agent keeps running normal turns in the same session context until it calls `update_goal({ status: "complete" })`, the user pauses/clears it, or the token budget is reached. Reloading Pi pauses an active goal instead of silently resuming it; use `/goal resume` to continue.
 

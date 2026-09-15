@@ -14,7 +14,7 @@ test("create_goal tool carries strong goal-writing contract", () => {
 		"Use this objective shape when possible",
 		"verified by <specific evidence>, while preserving <constraints>",
 		"Prefer a self-contained objective that survives continuation turns and context compaction",
-		"ask a clarifying question if missing success criteria or boundaries materially affect the contract",
+		"ask up to three clarifying questions only when missing success criteria or boundaries materially affect the contract",
 	]) {
 		assert.match(indexSource, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 	}
@@ -29,8 +29,16 @@ test("create_goal uses upsert semantics for explicitly requested goals", () => {
 
 test("update_goal remains completion-only in schema and guidance", () => {
 	assert.match(indexSource, /name: "update_goal"/);
-	assert.match(indexSource, /enum: \["complete"\]/);
+	assert.match(indexSource, /StringEnum\(\["complete"\] as const/);
+	assert.doesNotMatch(indexSource, /enum: \["complete"\]/);
 	assert.match(indexSource, /Do not use update_goal to pause, resume, abandon, or budget-limit a goal/);
+});
+
+test("the extension uses the current Pi package namespace", () => {
+	assert.doesNotMatch(indexSource, /@(?:mario)zechner\//);
+	assert.match(indexSource, /@earendil-works\/pi-coding-agent/);
+	assert.match(indexSource, /@earendil-works\/pi-ai/);
+	assert.match(indexSource, /from "typebox"/);
 });
 
 test("README documents the model-set goal and completion accounting contracts", () => {

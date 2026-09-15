@@ -27,8 +27,8 @@ A strong goal includes six parts:
 ## Workflow
 
 1. Default to Pi `pi-goal`. Write a Pi-compatible `/goal` command unless the user explicitly asks for another harness. The goal body can usually be reused in Codex Goal mode; Pi also supports optional token budgets such as `/goal --tokens 50k ...`.
-2. Gather context before drafting when the task depends on a repository, issue, test suite, benchmark, PR, design, or external documentation. Read the relevant files or sources instead of inventing the verification surface.
-3. Ask at most three clarifying questions only when missing information changes the goal contract. Prefer making safe assumptions explicit when the user is trying to move quickly.
+2. Gather context before drafting when the task depends on a repository, issue, test suite, benchmark, PR, design, or external documentation. Read the relevant files or sources instead of inventing the verification surface. Ground the verification surface in repo reality; never invent command, file, or test names.
+3. Ask up to three clarifying questions only when missing information changes the goal contract; otherwise make safe assumptions explicit.
 4. Draft the goal as a single pasteable command, then include a short rationale or checklist showing how the six parts are covered.
 5. For high-stakes or ambiguous work, provide two options: a narrower goal that is safer to execute and a broader goal that delegates more discovery to the agent. Recommend one.
 
@@ -66,7 +66,9 @@ Before returning a goal, verify it answers:
 - Can the user independently audit that completion claim?
 - Are regressions and forbidden approaches named?
 - Does the goal allow iteration without inviting unlimited drift?
+- Does the review Re-check Constraints and Boundaries before completion?
 - Does it define what to do when tests, credentials, network, data, or product decisions block progress?
+- If blocked, does the final report include evidence gathered, attempted paths, the exact blocker, and the next needed input?
 - Is it pasteable as one `/goal` command?
 
 ## Examples

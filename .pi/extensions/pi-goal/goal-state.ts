@@ -14,6 +14,13 @@ export type GoalState = {
 
 export type GoalEventKind = "active" | "continuation" | "paused" | "resumed" | "cleared" | "budget_limited" | "complete";
 
+export type GoalStatusDetail = {
+	remainingTokens: number | null;
+	elapsed: string;
+	updatedAt: string;
+	id: string;
+};
+
 export function parseTokenBudget(input: string): { objective: string; tokenBudget: number | null; error?: string } {
 	const match = input.match(/(?:^|\s)--tokens(?:=|\s+)(\S+\s*[kKmM]?)(?:\s|$)/);
 	if (!match) return { objective: input.trim(), tokenBudget: null };
@@ -60,13 +67,41 @@ export function statusLine(state: GoalState | null): string | undefined {
 	const budget = state.tokenBudget ? ` (${formatTokens(state.tokensUsed)} / ${formatTokens(state.tokenBudget)})` : ` (${formatElapsed(state.timeUsedSeconds)})`;
 	if (state.status === "active") return `Pursuing goal${budget}`;
 	if (state.status === "paused") return "Goal paused (/goal resume)";
-	if (state.status === "budget_limited") return state.tokenBudget ? `Goal unmet${budget}` : "Goal abandoned";
+	if (state.status === "budget_limited") return state.tokenBudget ? `Goal unmet${budget}` : "Goal unmet";
 	return `Goal achieved${budget}`;
 }
 
 export function goalUsage(state: GoalState): string {
 	if (state.tokenBudget != null) return `${formatTokens(state.tokensUsed)} / ${formatTokens(state.tokenBudget)} tokens`;
 	return formatElapsed(state.timeUsedSeconds);
+}
+
+export function goalStatusDetail(state: GoalState): GoalStatusDetail {
+	return {
+		remainingTokens: state.tokenBudget == null ? null : Math.max(0, state.tokenBudget - state.tokensUsed),
+		elapsed: formatElapsed(state.timeUsedSeconds),
+		updatedAt: new Date(state.updatedAt).toISOString(),
+		id: state.id.slice(0, 12),
+	};
+}
+
+// Keep this compact context available for re-injection after compaction. It is
+// deliberately an audit contract, not a dump of the full continuation prompt.
+export function goalCompactInstructions(state: GoalState): string {
+	const remainingTokens = state.tokenBudget == null ? "unlimited" : formatTokens(Math.max(0, state.tokenBudget - state.tokensUsed));
+	return `Active goal context to preserve after compaction.
+
+<untrusted_objective>
+${state.objective}
+</untrusted_objective>
+
+Usage: ${goalUsage(state)}
+Remaining tokens: ${remainingTokens}
+
+Audit rules:
+- Re-check the objective against concrete evidence in the current repository or session.
+- Re-check Constraints and Boundaries before changing scope or declaring completion.
+- If blocked, report evidence gathered, attempted paths, the exact blocker, and the next needed input.`;
 }
 
 export function truncateObjective(objective: string, max = 96): string {
