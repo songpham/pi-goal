@@ -17,3 +17,8 @@ test("an active goal is re-injected after successful compaction", () => {
 	assert.match(indexSource, /emitGoalEvent\(pi, "continuation", goal/);
 	assert.match(indexSource, /ctx\.hasPendingMessages\(\)/);
 });
+
+test("re-inject is skipped when kept context already carries the goal prompt", () => {
+	assert.match(indexSource, /keptGoalPromptExists\(branch, event\.compactionEntry\.firstKeptEntryId, goal\.id\)/);
+	assert.match(indexSource, /custom_message/);
+});

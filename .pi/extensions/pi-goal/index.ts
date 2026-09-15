@@ -101,6 +101,28 @@ function latestStateFromSession(ctx: ExtensionContext): { goal: GoalState | null
 	return latestStateFromEntries(entries);
 }
 
+// Message kinds whose content already carries the full goal prompt.
+const FULL_PROMPT_KINDS: ReadonlySet<string> = new Set(["active", "continuation", "resumed"]);
+
+// True when the kept (post-compaction) context already contains a full goal
+// prompt for this goal, making a re-inject redundant. Only returns true on
+// positive evidence: unknown shapes or a missing cut point fall through to
+// re-inject, preserving the previous behavior.
+function keptGoalPromptExists(entries: readonly unknown[], firstKeptEntryId: string, goalId: string): boolean {
+	let kept = false;
+	for (const entry of entries) {
+		if (!kept) {
+			if (isRecord(entry) && entry.id === firstKeptEntryId) kept = true;
+		else continue;
+	}
+		if (!isRecord(entry) || entry.type !== "custom_message" || entry.customType !== EVENT_TYPE) continue;
+		const details = isRecord(entry.details) ? (entry.details as { kind?: unknown; goal?: unknown }) : undefined;
+		if (typeof details?.kind !== "string" || !FULL_PROMPT_KINDS.has(details.kind)) continue;
+		if (isRecord(details.goal) && (details.goal as { id?: unknown }).id === goalId) return true;
+	}
+	return false;
+}
+
 function updateStatusBar(ctx: ExtensionContext) {
 	if (ctx.hasUI) ctx.ui.setStatus(CUSTOM_TYPE, statusBarEnabled ? statusLine(goal) ?? "" : "");
 }
@@ -379,9 +401,9 @@ export default function piGoal(pi: ExtensionAPI) {
 			if (goal && goal.status !== "complete") {
 				if (!ctx.hasUI) {
 					// Headless runs must never replace an existing goal implicitly.
-					// notify is a documented no-op in print/JSON modes, so this does
-					// not pollute stdout or block a headless run.
-					ctx.ui.notify("Cannot replace an existing goal without UI confirmation.", "warning");
+					// notify() is a no-op in print/JSON modes, so this neither
+					// pollutes stdout nor blocks a headless run.
+					notify(ctx, "Cannot replace an existing goal without UI confirmation.", "warning");
 					return;
 				}
 				const ok = await ctx.ui.confirm("Replace goal?", `Current: ${goal.objective}\n\nNew: ${parsed.objective}`);
@@ -406,7 +428,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		if (!goal || goal.status !== "active") return;
 	});
 
-	pi.on("session_compact", (_event, ctx) => {
+	pi.on("session_compact", (event, ctx) => {
 		// Re-inject the durable goal contract after the compaction entry so the
 		// next model request still has the objective, usage, and audit rules.
 		const restored = latestStateFromEntries(ctx.sessionManager.getBranch?.() ?? ctx.sessionManager.getEntries());
@@ -417,6 +439,13 @@ export default function piGoal(pi: ExtensionAPI) {
 		if (!goal || goal.status !== "active") return;
 		updateStatusBar(ctx);
 		syncGoalTools(pi);
+		const branch = ctx.sessionManager.getBranch?.() ?? ctx.sessionManager.getEntries();
+		if (keptGoalPromptExists(branch, event.compactionEntry.firstKeptEntryId, goal.id)) {
+      // The kept context already carries a full goal prompt for this goal
+      // (e.g. compact ran right after a continuation). Skip the re-inject
+      // and let the normal agent_end loop drive the next turn.
+			return;
+		}
 		emitGoalEvent(pi, "continuation", goal, {
 			// Let Pi trigger a turn when idle; never interrupt an already queued one.
 			triggerTurn: !ctx.hasPendingMessages(),

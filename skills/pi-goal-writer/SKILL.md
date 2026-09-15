@@ -66,7 +66,7 @@ Before returning a goal, verify it answers:
 - Can the user independently audit that completion claim?
 - Are regressions and forbidden approaches named?
 - Does the goal allow iteration without inviting unlimited drift?
-- Does the review Re-check Constraints and Boundaries before completion?
+- Does it re-check constraints and boundaries before declaring completion?
 - Does it define what to do when tests, credentials, network, data, or product decisions block progress?
 - If blocked, does the final report include evidence gathered, attempted paths, the exact blocker, and the next needed input?
 - Is it pasteable as one `/goal` command?
